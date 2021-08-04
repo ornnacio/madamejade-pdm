@@ -203,7 +203,10 @@ function stackLoja({ navigation }){
 function telaColeção({ navigation }){
 	
 	const [coleção, setColeção] = React.useState([]);
+	const [ids, setIds] = React.useState([]);
 	const [loading, setLoading] = React.useState(true);
+	const [visibleDialog, setVisibleDialog] = React.useState(false);
+	const [refreshDummy, setRefreshDummy] = React.useState(0);
 	const userId = firebase.auth().currentUser.uid;
 	
 	useEffect(() => {
@@ -217,13 +220,15 @@ function telaColeção({ navigation }){
 			.collection('coleção')
 			.onSnapshot((query) => {
 				
-				const list = [];
+				const list = [], ids = [];
 				
 				query.forEach((doc) => {
 					list.push(doc.data());
+					ids.push(doc.id);
 				})
 				
 				setColeção(list);
+				setIds(ids);
 				setLoading(false);
 			});
 			
@@ -231,7 +236,26 @@ function telaColeção({ navigation }){
 		
 		getColeção();
 		
-	}, []);
+	}, [refreshDummy]);
+	
+	function deletePlanta(id){
+		
+		setVisibleDialog(true);
+		
+		firebase
+		.firestore()
+		.collection('users')
+		.doc(userId)
+		.collection('coleção')
+		.doc(id)
+		.delete()
+		.then(() => {
+			setVisibleDialog(false);
+			setRefreshDummy(refreshDummy + 1);
+		}).catch((e) => {
+			alert(e);
+		});
+	}
 	
 	return(
 		<View style={styles.container}>
@@ -249,7 +273,10 @@ function telaColeção({ navigation }){
 					return(
 						<Card style={{width: 0.9 * Dimensions.get('window').width, marginBottom: 15}} key={index}>
 							<Card.Content>
-								<Title>{item.nome}</Title>
+								<View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+									<Title>{item.nome}</Title>
+									<Button color='red' onPress={() => deletePlanta(ids[index])}>Remover</Button>
+								</View>
 								<Paragraph>Espécie: {item.espécie}</Paragraph>
 								<Paragraph>Horário de regar: {item.horaRegar}</Paragraph>
 							</Card.Content>
@@ -257,6 +284,16 @@ function telaColeção({ navigation }){
 					);
 				})}
 			</ScrollView>
+			{!loading && <>
+				<Portal>
+					<Dialog visible={visibleDialog} dismissable={false}>
+						<Dialog.Content>
+							<ActivityIndicator size='large' color="#545454"/>
+							<Paragraph>Removendo item...</Paragraph>
+						</Dialog.Content>
+					</Dialog>
+				</Portal>
+			</>}
 			<FAB
 				style={styles.fab}
 				icon='plus'
@@ -608,8 +645,8 @@ export default function home({ navigation }){
 	return(
 		<Drawer.Navigator drawerContentOptions={{activeTintColor: '#7aab65'}} drawerContent={(props) => <MenuLateral {...props} />}>
 			<Drawer.Screen name="Loja Digital" component={stackLoja} />
-			<Drawer.Screen name="Sua Coleção" component={stackColeção} />
 			<Drawer.Screen name="Seu Carrinho" component={telaCarrinho} />
+			<Drawer.Screen name="Sua Coleção" component={stackColeção} />
 			<Drawer.Screen name="Encontre Nossa Loja" component={telaLocal} />
 			<Drawer.Screen name="Vídeo da Semana" component={telaVídeos} />
 		</Drawer.Navigator>
