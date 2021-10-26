@@ -1,12 +1,13 @@
 import React, { useState, state, Component, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, Image, TouchableOpacity, Alert, ScrollView, Dimensions, StatusBar, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, Image, TouchableOpacity, Alert, ScrollView, Dimensions, StatusBar, ActivityIndicator } from 'react-native';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList, DrawerItem } from '@react-navigation/drawer';
 import { createStackNavigator } from '@react-navigation/stack';
-import { Card, Title, Paragraph, Button, Snackbar, Portal, Dialog, Menu, FAB, List, Divider } from 'react-native-paper';
+import { Card, Title, Paragraph, Button, Snackbar, Portal, Dialog, Menu, FAB, IconButton, Divider, TextInput } from 'react-native-paper';
 import MapView, { Marker } from 'react-native-maps';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Video, AVPlaybackStatus } from 'expo-av';
+import * as ImagePicker from 'expo-image-picker';
 
 import firebase from 'firebase';
 import "firebase/firestore";
@@ -14,6 +15,7 @@ import "firebase/storage";
 import { logout } from "../firebase/firebaseMethods.js";
 
 import logo from "./assets/logo.png";
+import placeholder from "./assets/placeholder.png"
 
 const Drawer = createDrawerNavigator();
 const Stack = createStackNavigator();
@@ -23,13 +25,10 @@ function telaLoja({ navigation }){
 	
 	const [produtos, setProdutos] = React.useState([]);
 	const [ids, setIds] = React.useState([]);
-	const [arrImagens, setArrImagens] = React.useState([]);
 	const [loading1, setLoading1] = React.useState(true);
-	const [loading2, setLoading2] = React.useState(true);
 	const [visible, setVisible] = React.useState(false);
-	const userId = firebase.auth().currentUser.uid;
+	const [visibleDialog, setVisibleDialog] = useState(false);
 	const onDismissSnackBar = () => setVisible(false);
-	var storage = firebase.storage();
 	
 	useEffect(() => {
 		
@@ -38,8 +37,7 @@ function telaLoja({ navigation }){
 			let doc = await firebase
 			.firestore()
 			.collection('produtos')
-			.get()
-			.then((query) => {
+			.onSnapshot((query) => {
 				
 				const list = [], ids = [];
 				
@@ -56,91 +54,75 @@ function telaLoja({ navigation }){
 		
 		getProdutos();
 		
-		async function getImagemProdutos(){
-			
-			const imageRefs = await firebase.storage().ref().listAll();
-			const urls = await Promise.all(imageRefs.items.map((ref) => ref.getDownloadURL()));
-			setArrImagens(urls);
-			setLoading2(false);
-			
-		}
-		
-		getImagemProdutos();
-		
-		async function getQntdCarrinho(){
-			
-			let doc = await firebase
-			.firestore()
-			.collection('users')
-			.doc(userId)
-			.collection('carrinho')
-			.get()
-			.then((query) => {
-				
-				query.forEach((doc) => {
-					count = count + 1;
-				})
-			
-			})
-			
-		}
-		
-		getQntdCarrinho();
-		
 	}, []);
 	
-	function comprar(index){
-		
-		let str = 'p' + String(count + 1).padStart(3, '0');
-		
-		firebase
-		.firestore()
-		.collection('users')
-		.doc(userId)
-		.collection('carrinho')
-		.doc(str)
-		.set({
-			nome: produtos[index].nome,
-			preço: produtos[index].preço,
-			categoria: produtos[index].categoria,
-			urlImg: arrImagens[index]
-		});
-		
-		setVisible(true);
-		count = count + 1;
-		
-	}
+	function deleteProduto(id, path){
 	
+		setVisibleDialog(true);
+
+		firebase.storage().ref()
+			.child(path)
+			.delete()
+			.then(() => {
+				firebase.firestore()
+					.collection('produtos')
+					.doc(id)
+					.delete()
+			})
+
+		setVisibleDialog(false);
+	}
+
 	return(
 		<View style={styles.container}>
 			<StatusBar barStyle="dark-content" hidden={false} backgroundColor="#aef490"/>
 			<ScrollView style={{width: Dimensions.get('window').width}} contentContainerStyle={styles.containerScroll}>
-				{loading1 || loading2 && <>
+				{loading1 && <>
 					<ActivityIndicator size='large' color="#545454"/>
 					<Text>Carregando...</Text>
 				</>}
-				{!loading1 && !loading2 && arrImagens.map((url, index) => {
+				{!loading1 && produtos.map((p, index) => {
+
+					var preçoDouble = parseFloat(p.preço)
 					
 					return(
 						<Card style={styles.cardProduto} key={index}>
 							<Card.Content>
-								<Title>{produtos[index].nome}</Title>
-								<Paragraph>{'R$' + produtos[index].preço.toFixed(2)}</Paragraph>
+								<Title>{p.nome}</Title>
+								<Paragraph>{'R$' + preçoDouble.toFixed(2)}</Paragraph>
 							</Card.Content>
-							<Card.Cover source={{ uri: url }} style={{width: 0.9 * Dimensions.get('window').width}}/>
+							<Card.Cover source={{ uri: p.urlImg }} style={{width: 0.9 * Dimensions.get('window').width}}/>
 							<Card.Actions>
-								<Button color='#d4161d' onPress={() => navigation.navigate('Detalhes', {id: ids[index], urlImg: url})}>Detalhes</Button>
-								<Button color='#d4161d' onPress={() => comprar(index)}>Comprar</Button>
+								<View style={{ flex: 0.7, alignItems: 'flex-start' }}>
+									<Button color='#d4161d' onPress={() => navigation.navigate('Detalhes', {id: ids[index], urlImg: p.urlImg})}>Detalhes</Button>
+								</View>
+								<View style={{ flex: 0.3, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center' }}>
+									<IconButton icon="pencil" color="#4592a0" size={25} onPress={() => navigation.navigate("AtualizarProduto", { update: true, id: ids[index], obj: p })}></IconButton>
+									<IconButton icon="delete" color="#d4161d" size={25} onPress={() => deleteProduto(ids[index], p.path)}></IconButton>
+								</View>
 							</Card.Actions>
 						</Card>
 					);
 				})}
 			</ScrollView>
+			<FAB 
+				style={styles.fab}
+				onPress={() => navigation.navigate("AddProduto")}
+				icon="plus"
+			/>
 			<Snackbar
 				visible={visible}
 				onDismiss={onDismissSnackBar}>
 				Produto adicionado com sucesso!
 			</Snackbar>
+			<Portal>
+				<Dialog visible={visibleDialog} dismissable={false}>
+					<Dialog.Content>
+						<ActivityIndicator size='large' color="#545454"/>
+						<Paragraph>Salvando produto...</Paragraph>
+					</Dialog.Content>
+				</Dialog>
+			</Portal>
 		</View>
 	);
 }
@@ -182,10 +164,292 @@ function telaDetalhes({ route, navigation }){
 				<Title style={{marginBottom: 25}}>{info.nome}</Title>
 				<Image source={{uri: url}} style={{width: '100%', height: '50%'}} />
 				<ScrollView style={{width: Dimensions.get('window').width}} contentContainerStyle={styles.containerScrollDetalhes}>
-					<Paragraph>{info.desc}</Paragraph>
+					<Paragraph>{info.descrição}</Paragraph>
 				</ScrollView>
 				<Button mode='contained' onPress={() => navigation.goBack()}>Voltar</Button>
 			</>}
+		</View>
+	);
+}
+
+function telaAddProduto({ navigation }){
+
+	const [image, setImage] = useState(null);
+	const [nome, setNome] = useState('');
+	const [desc, setDesc] = useState('');
+	const [preço, setPreço] = useState('');
+	const [visibleDialog, setVisibleDialog] = useState(false);
+	const [visibleMenu, setVisibleMenu] = useState(false);
+	const [categoria, setCategoria] = useState('Planta');
+
+	useEffect(() => {
+
+		async function getPermissions(){
+			const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+			if (status !== 'granted') {
+				navigation.goBack();
+			}
+		}
+		
+		getPermissions();
+	});
+
+	const pickImage = async () => {
+
+		let result = await ImagePicker.launchImageLibraryAsync({
+		  	mediaTypes: ImagePicker.MediaTypeOptions.All,
+		 	quality: 1,
+		});
+	
+		if (!result.cancelled) {
+		  	setImage(result.uri);
+		}
+	};
+
+	function verificarEntradas(){
+		return(image !== null && nome !== '' && desc !== '' && preço !== '');
+	}
+
+	async function salvar(){
+		setVisibleDialog(true);
+
+		let i = await fetch(image);
+		let file = await i.blob();
+		let n = new Date();
+        let dateTime = n.getFullYear() + '_' + (n.getMonth() + 1) + '_' + n.getDate() + '_' +
+            n.getHours() + '_' + n.getMinutes() + '_' + n.getSeconds();
+		let path = 'images/' + dateTime;
+		
+		firebase.storage().ref()
+			.child(path)
+			.put(file)
+			.then((snapshot) => {
+				snapshot.ref.getDownloadURL().then((u) => {
+					
+					firebase.firestore()
+						.collection('produtos')
+						.doc(dateTime)
+						.set({
+							nome: nome,
+							descrição: desc,
+							preço: preço,
+							categoria: categoria,
+							urlImg: u,
+							path: path
+						})
+				})
+			})
+		
+		setVisibleDialog(false);
+		navigation.goBack();
+	}
+
+	return(
+		<View style={styles.container}>
+			<TouchableOpacity onPress={() => pickImage()}>
+				<Image source={image ? { uri: image } : placeholder} resizeMode="contain" style={{ width: 100, height: 100 }} />
+			</TouchableOpacity>
+			<TextInput 
+				style={styles.txtInput} 
+				placeholder='Nome do produto' 
+				onChangeText={setNome} 
+				value={nome}
+				underlineColor='#d4161d'
+			/>
+			<TextInput
+				style={styles.inputBox}
+				underlineColor='#d4161d'
+				multiline={true}
+				numberOfLines={6}
+				onChangeText={(text) => setDesc(text)}
+				value={desc}
+				placeholder="Descrição do produto"
+			/>
+			<TextInput 
+				style={styles.txtInput} 
+				placeholder='Preço do produto' 
+				onChangeText={setPreço} 
+				value={preço}
+				underlineColor='#d4161d'
+				keyboardType={'numeric'}
+			/>
+			<Menu
+				visible={visibleMenu}
+				onDismiss={() => setVisibleMenu(false)}
+				anchor={<Button mode='contained' onPress={() => setVisibleMenu(true)}>{categoria}</Button>}
+			>
+				<Menu.Item onPress={() => {setCategoria('Planta'); setVisibleMenu(false)}} title="Planta" />
+				<Menu.Item onPress={() => {setCategoria('Vaso'); setVisibleMenu(false)}} title="Vaso" />
+			</Menu>
+			<Button 
+				mode='contained' 
+				onPress={() => salvar()}
+				disabled={!verificarEntradas()}
+				style={{
+					backgroundColor: verificarEntradas() ? 'blue' : 'gray',
+				}}
+			>
+				Salvar
+			</Button>
+			<Portal>
+				<Dialog visible={visibleDialog} dismissable={false}>
+					<Dialog.Content>
+						<ActivityIndicator size='large' color="#545454"/>
+						<Paragraph>Salvando produto...</Paragraph>
+					</Dialog.Content>
+				</Dialog>
+			</Portal>
+		</View>
+	);
+}
+
+function telaAtualizarProduto({ route, navigation }){
+
+	const [image, setImage] = useState(route.params.obj.urlImg);
+	const [nome, setNome] = useState(route.params.obj.nome);
+	const [desc, setDesc] = useState(route.params.obj.descrição);
+	const [preço, setPreço] = useState(route.params.obj.preço);
+	const [visibleDialog, setVisibleDialog] = useState(false);
+	const [visibleMenu, setVisibleMenu] = useState(false);
+	const [categoria, setCategoria] = useState(route.params.obj.categoria);
+	const [changedImage, setChangedImage] = useState(false);
+
+	useEffect(() => {
+
+		async function getPermissions(){
+			const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+			if (status !== 'granted') {
+				navigation.goBack();
+			}
+		}
+		
+		getPermissions();
+	});
+
+	const pickImage = async () => {
+
+		let result = await ImagePicker.launchImageLibraryAsync({
+		  	mediaTypes: ImagePicker.MediaTypeOptions.All,
+		 	quality: 1,
+		});
+	
+		if (!result.cancelled) {
+		  	setImage(result.uri);
+			setChangedImage(true);
+		}
+	};
+
+	function verificarEntradas(){
+		return(image !== null && nome !== '' && desc !== '' && preço !== '');
+	}
+
+	async function salvar(){
+
+		setVisibleDialog(true);
+
+		if(changedImage){
+
+			let i = await fetch(image);
+			let file = await i.blob();
+			let n = new Date();
+			let dateTime = n.getFullYear() + '_' + (n.getMonth() + 1) + '_' + n.getDate() + '_' +
+				n.getHours() + '_' + n.getMinutes() + '_' + n.getSeconds();
+			let path = 'images/' + dateTime;
+			
+			firebase.storage().ref()
+				.child(path)
+				.put(file)
+				.then((snapshot) => {
+					snapshot.ref.getDownloadURL().then((u) => {
+						
+						firebase.firestore()
+							.collection('produtos')
+							.doc(route.params.id)
+							.set({
+								nome: nome,
+								descrição: desc,
+								preço: preço,
+								categoria: categoria,
+								urlImg: u,
+								path: path
+							})
+
+						firebase.storage().ref()
+							.child(route.params.obj.path)
+							.delete()
+					})
+				})
+		}else{
+			firebase.firestore()
+				.collection('produtos')
+				.doc(route.params.id)
+				.update({
+					nome: nome,
+					descrição: desc,
+					preço: preço,
+					categoria: categoria
+				})
+		}
+		
+		setVisibleDialog(false);
+		navigation.goBack();
+	}
+
+	return(
+		<View style={styles.container}>
+			<TouchableOpacity onPress={() => pickImage()}>
+				<Image source={image ? { uri: image } : placeholder} resizeMode="contain" style={{ width: 100, height: 100 }} />
+			</TouchableOpacity>
+			<TextInput 
+				style={styles.txtInput} 
+				placeholder='Nome do produto' 
+				onChangeText={setNome} 
+				value={nome}
+				underlineColor='#d4161d'
+			/>
+			<TextInput
+				style={styles.inputBox}
+				underlineColor='#d4161d'
+				multiline={true}
+				numberOfLines={6}
+				onChangeText={(text) => setDesc(text)}
+				value={desc}
+				placeholder="Descrição do produto"
+			/>
+			<TextInput 
+				style={styles.txtInput} 
+				placeholder='Preço do produto' 
+				onChangeText={setPreço} 
+				value={preço}
+				underlineColor='#d4161d'
+				keyboardType={'numeric'}
+			/>
+			<Menu
+				visible={visibleMenu}
+				onDismiss={() => setVisibleMenu(false)}
+				anchor={<Button mode='contained' onPress={() => setVisibleMenu(true)}>{categoria}</Button>}
+			>
+				<Menu.Item onPress={() => {setCategoria('Planta'); setVisibleMenu(false)}} title="Planta" />
+				<Menu.Item onPress={() => {setCategoria('Vaso'); setVisibleMenu(false)}} title="Vaso" />
+			</Menu>
+			<Button 
+				mode='contained' 
+				onPress={() => salvar()}
+				disabled={!verificarEntradas()}
+				style={{
+					backgroundColor: verificarEntradas() ? 'blue' : 'gray',
+				}}
+			>
+				Salvar
+			</Button>
+			<Portal>
+				<Dialog visible={visibleDialog} dismissable={false}>
+					<Dialog.Content>
+						<ActivityIndicator size='large' color="#545454"/>
+						<Paragraph>Salvando produto...</Paragraph>
+					</Dialog.Content>
+				</Dialog>
+			</Portal>
 		</View>
 	);
 }
@@ -196,6 +460,8 @@ function stackLoja({ navigation }){
 		<Stack.Navigator>
 			<Stack.Screen name="Loja" component={telaLoja} options={{headerShown: false}}/>
 			<Stack.Screen name="Detalhes" component={telaDetalhes} options={{headerShown: false}}/>
+			<Stack.Screen name="AddProduto" component={telaAddProduto} options={{headerShown: false}}/>
+			<Stack.Screen name="AtualizarProduto" component={telaAtualizarProduto} options={{headerShown: false}}/>
 		</Stack.Navigator>
 	);
 }
@@ -700,7 +966,7 @@ const styles = StyleSheet.create({
 	fab: {
 		position: 'absolute',
 		backgroundColor: '#d4161d',
-		margin: 25,
+		margin: 15,
 		right: 0,
 		bottom: 0,
 	},
@@ -711,11 +977,18 @@ const styles = StyleSheet.create({
 		color: '#545454',
 		borderColor: '#545454',
 		borderBottomWidth: 2,
+		marginVertical: 10,
 	},
 	
 	title: {
 		textAlign: 'center', 
 		marginBottom: 50, 
 		paddingHorizontal: 10
+	},
+
+	inputBox: {
+		borderRadius: 5,
+		width: 0.7 * Dimensions.get('window').width,
+		marginVertical: 10,
 	},
 });
