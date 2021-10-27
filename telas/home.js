@@ -119,7 +119,7 @@ function telaLoja({ navigation }){
 				<Dialog visible={visibleDialog} dismissable={false}>
 					<Dialog.Content>
 						<ActivityIndicator size='large' color="#545454"/>
-						<Paragraph>Salvando produto...</Paragraph>
+						<Paragraph>Removendo produto...</Paragraph>
 					</Dialog.Content>
 				</Dialog>
 			</Portal>
@@ -504,23 +504,27 @@ function telaColeção({ navigation }){
 		
 	}, [refreshDummy]);
 	
-	function deletePlanta(id){
+	function deletePlanta(id, path){
 		
 		setVisibleDialog(true);
+
+		firebase.storage().ref()
+			.child(path)
+			.delete()
+			.then(() => {
+				firebase
+					.firestore()
+					.collection('users')
+					.doc(userId)
+					.collection('coleção')
+					.doc(id)
+					.delete()
+					.then(() => {
+						setVisibleDialog(false);
+						setRefreshDummy(refreshDummy + 1);
+					})
+		})
 		
-		firebase
-		.firestore()
-		.collection('users')
-		.doc(userId)
-		.collection('coleção')
-		.doc(id)
-		.delete()
-		.then(() => {
-			setVisibleDialog(false);
-			setRefreshDummy(refreshDummy + 1);
-		}).catch((e) => {
-			alert(e);
-		});
 	}
 	
 	return(
@@ -538,10 +542,14 @@ function telaColeção({ navigation }){
 					
 					return(
 						<Card style={{width: 0.9 * Dimensions.get('window').width, marginBottom: 15}} key={index}>
+							<Card.Cover source={{ uri: item.urlImg }} style={{width: 0.9 * Dimensions.get('window').width}}/>
 							<Card.Content>
-								<View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+								<View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
 									<Title>{item.nome}</Title>
-									<Button color='red' onPress={() => deletePlanta(ids[index])}>Remover</Button>
+									<View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+										<IconButton icon="pencil" color="#4592a0" size={25} onPress={() => navigation.navigate('EditPlanta', { id: ids[index], obj: item })}></IconButton>
+										<IconButton icon="delete" color="#d4161d" size={25} onPress={() => deletePlanta(ids[index], item.path)}></IconButton>
+									</View>
 								</View>
 								<Paragraph>Espécie: {item.espécie}</Paragraph>
 								<Paragraph>Horário de regar: {item.horaRegar}</Paragraph>
@@ -570,56 +578,92 @@ function telaColeção({ navigation }){
 }
 
 function telaAddColeção({ navigation }){
-	
+
+	const [image, setImage] = useState(null);
 	const [nome, setNome] = React.useState('');
 	const [espécie, setEspécie] = React.useState('');
 	const [horaRegar, setHoraRegar] = React.useState(new Date(2021, 0, 1, 15, 0, 0));
 	const [visible, setVisible] = React.useState(false);
 	const [visibleDialog, setVisibleDialog] = React.useState(false);
 	const userId = firebase.auth().currentUser.uid;
+
+	useEffect(() => {
+
+		async function getPermissions(){
+			const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+			if (status !== 'granted') {
+				navigation.goBack();
+			}
+		}
+		
+		getPermissions();
+	});
 	
 	function onChange(event, selectedDate){
 		
 		const currentDate = selectedDate || horaRegar;
 		setVisible(false);
 		setHoraRegar(currentDate);
-		
 	};
-	
-	function geradorDeId(length) {
-		
-		var result = '';
-		var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-		var charactersLength = characters.length;
-		for (var i = 0; i < length; i++) {
-			result += characters.charAt(Math.floor(Math.random() *  charactersLength));
-	    }
-		return result;
-		
-	}
-	
-	function salvar(){
-		
-		let strHora = horaRegar.getHours() + ':' + String(horaRegar.getMinutes()).padEnd('2', 0); 
-		
-		firebase
-		.firestore()
-		.collection('users')
-		.doc(userId)
-		.collection('coleção')
-		.doc(geradorDeId(8))
-		.set({
-			nome: nome,
-			espécie: espécie,
-			horaRegar: strHora,
-		}).then(() => {
-			setVisibleDialog(true);
+
+	const pickImage = async () => {
+
+		let result = await ImagePicker.launchImageLibraryAsync({
+		  	mediaTypes: ImagePicker.MediaTypeOptions.All,
+		 	quality: 1,
 		});
+	
+		if (!result.cancelled) {
+		  	setImage(result.uri);
+		}
+	};
+
+	function verificarEntradas(){
+		return(image !== null && nome !== '' && espécie !== '');
+	}
+
+	async function salvar(){
+
+		setVisibleDialog(true);
+
+		let i = await fetch(image);
+		let file = await i.blob();
+		let n = new Date();
+        let dateTime = n.getFullYear() + '_' + (n.getMonth() + 1) + '_' + n.getDate() + '_' +
+            n.getHours() + '_' + n.getMinutes() + '_' + n.getSeconds();
+		let path = 'collection' + userId + '/' + dateTime;
+		let strHora = horaRegar.getHours() + ':' + String(horaRegar.getMinutes()).padEnd('2', 0);
+
+		firebase.storage().ref()
+			.child(path)
+			.put(file)
+			.then((snapshot) => {
+				snapshot.ref.getDownloadURL().then((u) => {
+					
+					firebase.firestore()
+						.collection('users')
+						.doc(userId)
+						.collection('coleção')
+						.doc(dateTime)
+						.set({
+							nome: nome,
+							espécie: espécie,
+							horaRegar: strHora,
+							urlImg: u,
+							path: path
+						})
+				})
+			})
 		
+		setVisibleDialog(false);
+		navigation.goBack();
 	}
 	
 	return(
 		<View style={styles.container}>
+			<TouchableOpacity onPress={() => pickImage()}>
+				<Image source={image ? { uri: image } : placeholder} resizeMode="contain" style={{ width: 100, height: 100 }} />
+			</TouchableOpacity>
 			<TextInput style={styles.txtInput} placeholder='Nome da Planta' onChangeText={setNome} value={nome} />
 			<TextInput style={styles.txtInput} placeholder='Espécie' onChangeText={setEspécie} value={espécie} />
 			<View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 15, marginTop: 15}}>
@@ -633,13 +677,170 @@ function telaAddColeção({ navigation }){
 					onChange={onChange}
 				/>}
 			</View>
-			<Button mode='contained' style={{marginTop: 15, marginBottom: 15}} onPress={() => salvar()}>salvar</Button>
+			<Button 
+				mode='contained' 
+				style={{
+					marginTop: 15, 
+					marginBottom: 15,
+					backgroundColor: verificarEntradas() ? 'blue' : 'gray',
+				}} 
+				onPress={() => salvar()}
+				disabled={!verificarEntradas()}
+			>
+				salvar
+			</Button>
 			<Button mode='contained' style={{marginTop: 15, marginBottom: 15}} onPress={() => navigation.goBack()}>voltar</Button>
 			<Portal>
 				<Dialog visible={visibleDialog} dismissable={true}>
 					<Dialog.Content>
-						<Paragraph>Item salvo com sucesso!</Paragraph>
-						<Button onPress={() => navigation.navigate('Coleção')}>Ver sua coleção</Button>
+						<ActivityIndicator size='large' color="#545454"/>
+						<Paragraph>Adicionando item...</Paragraph>
+					</Dialog.Content>
+				</Dialog>
+			</Portal>
+		</View>
+	);
+}
+
+function telaEditPlanta({ route, navigation }){
+
+	const [image, setImage] = useState(route.params.obj.urlImg);
+	const [nome, setNome] = React.useState(route.params.obj.nome);
+	const [espécie, setEspécie] = React.useState(route.params.obj.espécie);
+	const [horaRegar, setHoraRegar] = React.useState(new Date(2021, 0, 1, route.params.obj.horaRegar.split(':')[0], route.params.obj.horaRegar.split(':')[1], 0));
+	const [visible, setVisible] = React.useState(false);
+	const [visibleDialog, setVisibleDialog] = React.useState(false);
+	const [changedImage, setChangedImage] = useState(false);
+	const userId = firebase.auth().currentUser.uid;
+
+	useEffect(() => {
+
+		async function getPermissions(){
+			const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+			if (status !== 'granted') {
+				navigation.goBack();
+			}
+		}
+		
+		getPermissions();
+	});
+	
+	function onChange(event, selectedDate){
+		
+		const currentDate = selectedDate || horaRegar;
+		setVisible(false);
+		setHoraRegar(currentDate);
+	};
+
+	const pickImage = async () => {
+
+		let result = await ImagePicker.launchImageLibraryAsync({
+		  	mediaTypes: ImagePicker.MediaTypeOptions.All,
+		 	quality: 1,
+		});
+	
+		if (!result.cancelled) {
+		  	setImage(result.uri);
+			setChangedImage(true);
+		}
+	};
+
+	function verificarEntradas(){
+		return(image !== null && nome !== '' && espécie !== '');
+	}
+
+	async function salvar(){
+
+		setVisibleDialog(true);
+
+		let strHora = horaRegar.getHours() + ':' + String(horaRegar.getMinutes()).padEnd('2', 0);
+
+		if(changedImage){
+
+			let i = await fetch(image);
+			let file = await i.blob();
+			let n = new Date();
+			let dateTime = n.getFullYear() + '_' + (n.getMonth() + 1) + '_' + n.getDate() + '_' +
+				n.getHours() + '_' + n.getMinutes() + '_' + n.getSeconds();
+			let path = 'collection' + userId + '/' + dateTime;
+
+			firebase.storage().ref()
+				.child(path)
+				.put(file)
+				.then((snapshot) => {
+					snapshot.ref.getDownloadURL().then((u) => {
+						
+						firebase.firestore()
+							.collection('users')
+							.doc(userId)
+							.collection('coleção')
+							.doc(route.params.id)
+							.set({
+								nome: nome,
+								espécie: espécie,
+								horaRegar: strHora,
+								urlImg: u,
+								path: path
+							})
+
+						firebase.storage().ref()
+							.child(route.params.obj.path)
+							.delete()
+					})
+				})
+		}else{
+			firebase.firestore()
+				.collection('users')
+				.doc(userId)
+				.collection('coleção')
+				.doc(route.params.id)
+				.update({
+					nome: nome,
+					espécie: espécie,
+					horaRegar: strHora,
+				})
+		}
+		
+		setVisibleDialog(false);
+		navigation.goBack();
+	}
+	
+	return(
+		<View style={styles.container}>
+			<TouchableOpacity onPress={() => pickImage()}>
+				<Image source={image ? { uri: image } : placeholder} resizeMode="contain" style={{ width: 100, height: 100 }} />
+			</TouchableOpacity>
+			<TextInput style={styles.txtInput} placeholder='Nome da Planta' onChangeText={setNome} value={nome} />
+			<TextInput style={styles.txtInput} placeholder='Espécie' onChangeText={setEspécie} value={espécie} />
+			<View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 15, marginTop: 15}}>
+				<Text>Horário para regar: </Text>
+				<Button onPress={() => setVisible(true)}>Selecionar</Button>
+				{visible && <DateTimePicker
+					value={horaRegar}
+					mode={'time'}
+					is24Hour={true}
+					display="default"
+					onChange={onChange}
+				/>}
+			</View>
+			<Button 
+				mode='contained' 
+				style={{
+					marginTop: 15, 
+					marginBottom: 15,
+					backgroundColor: verificarEntradas() ? 'blue' : 'gray',
+				}} 
+				onPress={() => salvar()}
+				disabled={!verificarEntradas()}
+			>
+				salvar
+			</Button>
+			<Button mode='contained' style={{marginTop: 15, marginBottom: 15}} onPress={() => navigation.goBack()}>voltar</Button>
+			<Portal>
+				<Dialog visible={visibleDialog} dismissable={true}>
+					<Dialog.Content>
+						<ActivityIndicator size='large' color="#545454"/>
+						<Paragraph>Atualizando item...</Paragraph>
 					</Dialog.Content>
 				</Dialog>
 			</Portal>
@@ -653,6 +854,7 @@ function stackColeção({ navigation }){
 		<Stack.Navigator>
 			<Stack.Screen name="Coleção" component={telaColeção} options={{headerShown: false}}/>
 			<Stack.Screen name="AddColeção" component={telaAddColeção} options={{headerShown: false}}/>
+			<Stack.Screen name="EditPlanta" component={telaEditPlanta} options={{headerShown: false}}/>
 		</Stack.Navigator>
 	);
 }
@@ -679,176 +881,6 @@ function telaLocal({ navigation }){
 			<View style={{flex: 0.1}}>
 				<Text>Rua Euclides Hack, Bairro Veneza, 1603, Xanxerê - SC</Text>
 			</View>
-		</View>
-	);
-}
-
-function telaCarrinho({ navigation }){
-	
-	const [carrinho, setCarrinho] = React.useState([]);
-	const [carrinhoPlantas, setCarrinhoPlantas] = React.useState([]);
-	const [carrinhoVasos, setCarrinhoVasos] = React.useState([]);
-	const [filtroPlantas, setFiltroPlantas] = React.useState(false);
-	const [filtroVasos, setFiltroVasos] = React.useState(false);
-	const [ids, setIds] = React.useState([]);
-	const [loading, setLoading] = React.useState(true);
-	const [visibleDialog, setVisibleDialog] = React.useState(false);
-	const [visibleMenu, setVisibleMenu] = React.useState(false);
-	const [refreshDummy, setRefreshDummy] = React.useState(0);
-	const userId = firebase.auth().currentUser.uid;
-	
-	const openMenu = () => setVisibleMenu(true);
-	const closeMenu = () => setVisibleMenu(false);
-	
-	useEffect(() => {
-		
-		async function getCarrinho(){
-			
-			let doc = await firebase
-			.firestore()
-			.collection('users')
-			.doc(userId)
-			.collection('carrinho')
-			.onSnapshot((query) => {
-				
-				const list = [], ids = [];
-				
-				query.forEach((doc) => {
-					list.push(doc.data());
-					ids.push(doc.id);
-				})
-				
-				setCarrinho(list);
-				setIds(ids);
-				setLoading(false);
-				
-				let apenasPlantas = list.filter(checkPlanta);
-				setCarrinhoPlantas(apenasPlantas);
-				
-				let apenasVasos = list.filter(checkVaso);
-				setCarrinhoVasos(apenasVasos);
-			})
-		}
-		
-		getCarrinho();
-		
-	}, [refreshDummy])
-	
-	function checkPlanta(item){
-		return item.categoria === 'planta';
-	}
-	
-	function checkVaso(item){
-		return item.categoria === 'vaso';
-	}
-	
-	function deleteItem(id){
-		
-		setVisibleDialog(true);
-		
-		firebase
-		.firestore()
-		.collection('users')
-		.doc(userId)
-		.collection('carrinho')
-		.doc(id)
-		.delete()
-		.then(() => {
-			setVisibleDialog(false);
-			setRefreshDummy(refreshDummy + 1);
-		}).catch((e) => {
-			alert(e);
-		});
-		
-	}
-	
-	return(
-		<View style={styles.container}>
-			<StatusBar barStyle="dark-content" hidden={false} backgroundColor="#aef490"/>
-			<ScrollView style={{width: Dimensions.get('window').width}} contentContainerStyle={styles.containerScroll}>
-				{loading && <>
-					<ActivityIndicator size='large' color="#545454"/>
-					<Text>Carregando...</Text>
-				</>}
-				{!loading && <Menu
-					visible={visibleMenu}
-					onDismiss={closeMenu}
-					anchor={<Button mode='outlined' onPress={openMenu} style={{marginBottom: 15, marginTop: 15}}>Filtrar itens</Button>}>
-					<Menu.Item onPress={() => {
-						setFiltroPlantas(false);
-						setFiltroVasos(false);
-						closeMenu();
-					}} title="Todos os Itens" />
-					<Menu.Item onPress={() => {
-						setFiltroPlantas(true);
-						setFiltroVasos(false);
-						closeMenu();
-					}} title="Plantas" />
-					<Menu.Item onPress={() => {
-						setFiltroPlantas(false);
-						setFiltroVasos(true);
-						closeMenu();
-					}} title="Vasos" />
-				</Menu>}
-				{!loading && (carrinho.length == 0) && <>
-					<Text>Visite a loja e adicione produtos ao seu carrinho!</Text>
-				</>}
-				{!loading && !filtroPlantas && !filtroVasos && carrinho.map((item, index) => {
-					
-					return(
-						<Card style={styles.cardProduto} key={index}>
-							<Card.Content>
-								<Title>{item.nome}</Title>
-								<Paragraph>{'R$' + item.preço.toFixed(2)}</Paragraph>
-							</Card.Content>
-							<Card.Cover source={{ uri: item.urlImg }} style={{width: 0.9 * Dimensions.get('window').width}}/>
-							<Card.Actions>
-								<Button color='#d4161d' onPress={() => deleteItem(ids[index])}>Remover</Button>
-							</Card.Actions>
-						</Card>
-					);
-				})}
-				{!loading && filtroPlantas && !filtroVasos && carrinhoPlantas.map((item, index) => {
-					
-					return(
-						<Card style={styles.cardProduto} key={index}>
-							<Card.Content>
-								<Title>{item.nome}</Title>
-								<Paragraph>{'R$' + item.preço.toFixed(2)}</Paragraph>
-							</Card.Content>
-							<Card.Cover source={{ uri: item.urlImg }} style={{width: 0.9 * Dimensions.get('window').width}}/>
-							<Card.Actions>
-								<Button color='#d4161d' onPress={() => deleteItem(ids[index])}>Remover</Button>
-							</Card.Actions>
-						</Card>
-					);
-				})}
-				{!loading && !filtroPlantas && filtroVasos && carrinhoVasos.map((item, index) => {
-					
-					return(
-						<Card style={styles.cardProduto} key={index}>
-							<Card.Content>
-								<Title>{item.nome}</Title>
-								<Paragraph>{'R$' + item.preço.toFixed(2)}</Paragraph>
-							</Card.Content>
-							<Card.Cover source={{ uri: item.urlImg }} style={{width: 0.9 * Dimensions.get('window').width}}/>
-							<Card.Actions>
-								<Button color='#d4161d' onPress={() => deleteItem(ids[index])}>Remover</Button>
-							</Card.Actions>
-						</Card>
-					);
-				})}
-				{!loading && <>
-					<Portal>
-						<Dialog visible={visibleDialog} dismissable={false}>
-							<Dialog.Content>
-								<ActivityIndicator size='large' color="#545454"/>
-								<Paragraph>Removendo item...</Paragraph>
-							</Dialog.Content>
-						</Dialog>
-					</Portal>
-				</>}
-			</ScrollView>
 		</View>
 	);
 }
@@ -911,7 +943,7 @@ export default function home({ navigation }){
 	return(
 		<Drawer.Navigator drawerContentOptions={{activeTintColor: '#7aab65'}} drawerContent={(props) => <MenuLateral {...props} />}>
 			<Drawer.Screen name="Loja Digital" component={stackLoja} />
-			<Drawer.Screen name="Seu Carrinho" component={telaCarrinho} />
+
 			<Drawer.Screen name="Sua Coleção" component={stackColeção} />
 			<Drawer.Screen name="Encontre Nossa Loja" component={telaLocal} />
 			<Drawer.Screen name="Vídeo da Semana" component={telaVídeos} />
