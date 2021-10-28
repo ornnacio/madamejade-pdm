@@ -8,6 +8,7 @@ import MapView, { Marker } from 'react-native-maps';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Video, AVPlaybackStatus } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
+import axios from 'axios';
 
 import firebase from 'firebase';
 import "firebase/firestore";
@@ -859,6 +860,77 @@ function stackColeção({ navigation }){
 	);
 }
 
+function telaPrevisão({ navigation }) {
+
+	const [dias, setDias] = useState([]);
+	const [ready, setReady] = useState(false);
+	let list = [];
+	strCoord = '-26.874928726178037,-52.40490281906037';
+	
+	var options = {
+		method: 'GET',
+		url: 'https://weatherapi-com.p.rapidapi.com/forecast.json',
+		params: {q: '-26.874928726178037,-52.40490281906037', days: '3', lang: 'pt'},
+		headers: {
+		  	'x-rapidapi-host': 'weatherapi-com.p.rapidapi.com',
+		  	'x-rapidapi-key': '7a12ca91a5msh177f72e473b3829p12216bjsnba1204c54368'
+		}
+	};
+
+	function fixDateFormat(d){
+		let arr = d.split('-');
+		return arr[2] + '/' + arr[1] + '/' + arr[0];
+	}
+
+	useEffect(() => {
+
+		axios.request(options).then((response) => {
+			
+			let arr = response.data.forecast.forecastday;
+
+			arr.forEach((day) => {
+
+				let obj = {
+					data: fixDateFormat(day.date),
+					max: day.day.maxtemp_c,
+					min: day.day.mintemp_c,
+					mmChuva: day.day.totalprecip_mm,
+					condição: day.day.condition.text,
+				}
+
+				list.push(obj);
+			})
+
+			setDias(list);
+			setReady(true);
+			
+		}).catch(function (error) {
+			console.error(error);
+		});
+	})
+
+	return(
+		<View style={styles.container}>
+			<ScrollView style={{width: Dimensions.get('window').width}} contentContainerStyle={styles.containerScroll}>
+				{!ready && <Text>carregante</Text>}
+				{ready && dias.map((d, index) => {
+					
+					return(
+						<Card style={{width: 0.9 * Dimensions.get('window').width, marginBottom: 15}} key={index}>
+							<Card.Content>
+								<Title>{d.data}</Title>
+								<Paragraph>📉 {d.min}°C - 📈 {d.max}°C</Paragraph>
+								<Paragraph>Condição: {d.condição}</Paragraph>
+								<Paragraph>Milímetros de chuva: {d.mmChuva}</Paragraph>
+							</Card.Content>
+						</Card>
+					);
+				})}
+			</ScrollView>
+		</View>
+	);
+}
+
 function telaLocal({ navigation }){
 	
 	return(
@@ -943,7 +1015,7 @@ export default function home({ navigation }){
 	return(
 		<Drawer.Navigator drawerContentOptions={{activeTintColor: '#7aab65'}} drawerContent={(props) => <MenuLateral {...props} />}>
 			<Drawer.Screen name="Loja Digital" component={stackLoja} />
-
+			<Drawer.Screen name="Previsão do Tempo" component={telaPrevisão} />
 			<Drawer.Screen name="Sua Coleção" component={stackColeção} />
 			<Drawer.Screen name="Encontre Nossa Loja" component={telaLocal} />
 			<Drawer.Screen name="Vídeo da Semana" component={telaVídeos} />
