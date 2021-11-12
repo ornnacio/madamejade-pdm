@@ -76,7 +76,7 @@ function telaLoja({ navigation }){
 
 	return(
 		<View style={styles.container}>
-			<StatusBar barStyle="dark-content" hidden={false} backgroundColor="#aef490"/>
+			<StatusBar barStyle='light-content' hidden={false} backgroundColor="#577a48"/>
 			<ScrollView style={{width: Dimensions.get('window').width}} contentContainerStyle={styles.containerScroll}>
 				{loading1 && <>
 					<ActivityIndicator size='large' color="#545454"/>
@@ -162,11 +162,33 @@ function telaDetalhes({ route, navigation }){
 				<Text>Carregando...</Text>
 			</>}
 			{!loading && <>
-				<Title style={{marginBottom: 25}}>{info.nome}</Title>
+				<View style={{
+					flex: 0.4,
+					alignItems: 'center',
+					justifyContent: 'center',
+					borderWidth: 3,
+					borderColor: '#d4161d',
+					borderRadius: 5,
+					marginVertical: 15,
+					width: 0.8 * Dimensions.get('window').width,
+
+				}}>
+					<Title style={{color: '#d4161d'}}>{info.nome}</Title>
+				</View>
 				<Image source={{uri: url}} style={{width: '100%', height: '50%'}} />
-				<ScrollView style={{width: Dimensions.get('window').width}} contentContainerStyle={styles.containerScrollDetalhes}>
-					<Paragraph>{info.descrição}</Paragraph>
-				</ScrollView>
+				<View style={{
+					flex: 0.5,
+					borderWidth: 1,
+					borderColor: '#d4161d',
+					borderRadius: 5,
+					padding: 15,
+					margin: 10,
+					width: 0.9 * Dimensions.get('window').width
+				}}>
+					<ScrollView contentContainerStyle={styles.containerScrollDetalhes}>
+						<Paragraph>{info.descrição}</Paragraph>
+					</ScrollView>
+				</View>
 				<Button mode='contained' onPress={() => navigation.goBack()}>Voltar</Button>
 			</>}
 		</View>
@@ -277,7 +299,7 @@ function telaAddProduto({ navigation }){
 			<Menu
 				visible={visibleMenu}
 				onDismiss={() => setVisibleMenu(false)}
-				anchor={<Button mode='contained' onPress={() => setVisibleMenu(true)}>{categoria}</Button>}
+				anchor={<Button mode='contained' icon='chevron-down' color='#d4161d' onPress={() => setVisibleMenu(true)}>{categoria}</Button>}
 			>
 				<Menu.Item onPress={() => {setCategoria('Planta'); setVisibleMenu(false)}} title="Planta" />
 				<Menu.Item onPress={() => {setCategoria('Vaso'); setVisibleMenu(false)}} title="Vaso" />
@@ -288,6 +310,7 @@ function telaAddProduto({ navigation }){
 				disabled={!verificarEntradas()}
 				style={{
 					backgroundColor: verificarEntradas() ? 'blue' : 'gray',
+					marginTop: 15,
 				}}
 			>
 				Salvar
@@ -428,7 +451,7 @@ function telaAtualizarProduto({ route, navigation }){
 			<Menu
 				visible={visibleMenu}
 				onDismiss={() => setVisibleMenu(false)}
-				anchor={<Button mode='contained' onPress={() => setVisibleMenu(true)}>{categoria}</Button>}
+				anchor={<Button mode='contained' icon='chevron-down' color='#d4161d' onPress={() => setVisibleMenu(true)}>{categoria}</Button>}
 			>
 				<Menu.Item onPress={() => {setCategoria('Planta'); setVisibleMenu(false)}} title="Planta" />
 				<Menu.Item onPress={() => {setCategoria('Vaso'); setVisibleMenu(false)}} title="Vaso" />
@@ -458,11 +481,11 @@ function telaAtualizarProduto({ route, navigation }){
 function stackLoja({ navigation }){
 	
 	return(
-		<Stack.Navigator>
-			<Stack.Screen name="Loja" component={telaLoja} options={{headerShown: false}}/>
-			<Stack.Screen name="Detalhes" component={telaDetalhes} options={{headerShown: false}}/>
-			<Stack.Screen name="AddProduto" component={telaAddProduto} options={{headerShown: false}}/>
-			<Stack.Screen name="AtualizarProduto" component={telaAtualizarProduto} options={{headerShown: false}}/>
+		<Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#577a48' }, headerTintColor: 'white' }}>
+			<Stack.Screen name="Loja" component={telaLoja} options={{title: 'Loja virtual'}}/>
+			<Stack.Screen name="Detalhes" component={telaDetalhes} options={{title: 'Ver detalhes'}}/>
+			<Stack.Screen name="AddProduto" component={telaAddProduto} options={{title: 'Adicionar produto'}}/>
+			<Stack.Screen name="AtualizarProduto" component={telaAtualizarProduto} options={{title: 'Editar produto'}}/>
 		</Stack.Navigator>
 	);
 }
@@ -530,16 +553,28 @@ function telaColeção({ navigation }){
 	
 	return(
 		<View style={styles.container}>
-			<StatusBar barStyle="dark-content" hidden={false} backgroundColor="#aef490"/>
-			<ScrollView style={{width: Dimensions.get('window').width}} contentContainerStyle={styles.containerScroll}>
-				{loading && <>
-					<ActivityIndicator size='large' color="#545454"/>
-					<Text>Carregando...</Text>
-				</>}
-				{!loading && coleção.length == 0 && <>
-					<Paragraph>Parece que você ainda não adicionou nenhuma planta à sua coleção. Clique no botão e comece agora!</Paragraph>
-				</>}
-				{!loading && coleção.map((item, index) => {
+			<StatusBar barStyle="light-content" hidden={false} backgroundColor="#577a48"/>
+			{!loading && coleção.length == 0 && 
+				<View style={{
+					height: 0.4 * Dimensions.get('window').height,
+					width: 0.8 * Dimensions.get('window').width,
+					borderWidth: 1,
+					borderRadius: 5,
+					borderColor: '#d4161d',
+					justifyContent: 'center',
+					alignItems: 'center',
+					alignSelf: 'center'
+				}}>
+					<Paragraph style={{textAlign: 'center'}}>Parece que você ainda não adicionou nenhuma planta à sua coleção. Clique no botão e comece agora!</Paragraph>
+				</View>
+			}
+			{loading && <>
+				<ActivityIndicator size='large' color="#545454"/>
+				<Text>Carregando...</Text>
+			</>}
+			{!loading && coleção.length > 0 &&<ScrollView style={{width: Dimensions.get('window').width}} contentContainerStyle={styles.containerScroll}>
+				
+				{coleção.map((item, index) => {
 					
 					return(
 						<Card style={{width: 0.9 * Dimensions.get('window').width, marginBottom: 15}} key={index}>
@@ -558,7 +593,7 @@ function telaColeção({ navigation }){
 						</Card>
 					);
 				})}
-			</ScrollView>
+			</ScrollView>}
 			{!loading && <>
 				<Portal>
 					<Dialog visible={visibleDialog} dismissable={false}>
@@ -852,10 +887,10 @@ function telaEditPlanta({ route, navigation }){
 function stackColeção({ navigation }){
 	
 	return(
-		<Stack.Navigator>
-			<Stack.Screen name="Coleção" component={telaColeção} options={{headerShown: false}}/>
-			<Stack.Screen name="AddColeção" component={telaAddColeção} options={{headerShown: false}}/>
-			<Stack.Screen name="EditPlanta" component={telaEditPlanta} options={{headerShown: false}}/>
+		<Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#577a48' }, headerTintColor: 'white' }}>
+			<Stack.Screen name="Coleção" component={telaColeção} options={{title: 'Sua coleção'}}/>
+			<Stack.Screen name="AddColeção" component={telaAddColeção} options={{title: 'Adicionar para a coleção'}}/>
+			<Stack.Screen name="EditPlanta" component={telaEditPlanta} options={{title: 'Editar planta'}}/>
 		</Stack.Navigator>
 	);
 }
@@ -865,7 +900,6 @@ function telaPrevisão({ navigation }) {
 	const [dias, setDias] = useState([]);
 	const [ready, setReady] = useState(false);
 	let list = [];
-	strCoord = '-26.874928726178037,-52.40490281906037';
 	
 	var options = {
 		method: 'GET',
@@ -912,7 +946,10 @@ function telaPrevisão({ navigation }) {
 	return(
 		<View style={styles.container}>
 			<ScrollView style={{width: Dimensions.get('window').width}} contentContainerStyle={styles.containerScroll}>
-				{!ready && <Text>carregante</Text>}
+				{!ready && <>
+					<ActivityIndicator size='large' color='#545454'/>
+					<Text>Carregando...</Text>
+				</>}
 				{ready && dias.map((d, index) => {
 					
 					return(
@@ -931,30 +968,44 @@ function telaPrevisão({ navigation }) {
 	);
 }
 
+function stackPrevisão() {
+	
+	return(
+		<Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#577a48' }, headerTintColor: 'white' }}>
+			<Stack.Screen name="Previsão do tempo" component={telaPrevisão} />
+		</Stack.Navigator>
+	)
+}
+
 function telaLocal({ navigation }){
 	
 	return(
 		<View style={styles.container}>
-			<View style={{flex: 0.1}}>
-				<StatusBar barStyle="dark-content" hidden={false} backgroundColor="#aef490"/>
-				<Title style={{marginTop: 10}}>Localização da nossa loja</Title>
-			</View>
-			<View style={{flex: 0.8}}>
+			<View style={{flex: 0.9}}>
 				<MapView
 					initialRegion={{
 						latitude: -26.87649265433925, 
 						longitude: -52.41826050300975,
 						latitudeDelta: 0.01,
 						longitudeDelta: 0.01,
-					}} style={{width: Dimensions.get('window').width, height: '90%'}}>
+					}} style={{width: Dimensions.get('window').width, height: '100%'}}>
 					<Marker coordinate={{latitude: -26.876358675100676, longitude: -52.41834633366091}} pinColor={'#aef490'}/>
 				</MapView>
 			</View>
-			<View style={{flex: 0.1}}>
+			<View style={{flex: 0.1, alignItems: 'center', justifyContent: 'center'}}>
 				<Text>Rua Euclides Hack, Bairro Veneza, 1603, Xanxerê - SC</Text>
 			</View>
 		</View>
 	);
+}
+
+function stackLocal() {
+	
+	return(
+		<Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#577a48' }, headerTintColor: 'white' }}>
+			<Stack.Screen name="Encontre nossa loja" component={telaLocal} />
+		</Stack.Navigator>
+	)
 }
 
 function telaVídeos({ navigation }){
@@ -964,7 +1015,19 @@ function telaVídeos({ navigation }){
 
 	return(
 		<View style={styles.container}>
-			<Title style={styles.title}>Vídeo da semana escolhido pela nossa equipe</Title>
+			<View style={{
+				borderWidth: 1,
+				borderColor: '#d4161d',
+				borderRadius: 5,
+				padding: 15,
+				margin: 10,
+				marginBottom: 30,
+				width: 0.9 * Dimensions.get('window').width,
+				alignItems: 'center',
+				justifyContent: 'center'
+			}}>
+				<Title style={styles.title}>Vídeo da semana escolhido pela nossa equipe</Title>
+			</View>
 			<Card style={styles.cardProduto}>
 				<Card.Content>
 					<Title style={{textAlign: 'center', paddingHorizontal: 5}}>Os 7 ERROS mais comuns em suculentas</Title>
@@ -981,6 +1044,15 @@ function telaVídeos({ navigation }){
 			</Card>
 		</View>
 	);
+}
+
+function stackVídeos() {
+	
+	return(
+		<Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#577a48' }, headerTintColor: 'white' }}>
+			<Stack.Screen name="Vídeo da semana" component={telaVídeos} />
+		</Stack.Navigator>
+	)
 }
 
 function MenuLateral( props ) {
@@ -1015,10 +1087,10 @@ export default function home({ navigation }){
 	return(
 		<Drawer.Navigator drawerContentOptions={{activeTintColor: '#7aab65'}} drawerContent={(props) => <MenuLateral {...props} />}>
 			<Drawer.Screen name="Loja Digital" component={stackLoja} />
-			<Drawer.Screen name="Previsão do Tempo" component={telaPrevisão} />
+			<Drawer.Screen name="Previsão do Tempo" component={stackPrevisão} />
 			<Drawer.Screen name="Sua Coleção" component={stackColeção} />
-			<Drawer.Screen name="Encontre Nossa Loja" component={telaLocal} />
-			<Drawer.Screen name="Vídeo da Semana" component={telaVídeos} />
+			<Drawer.Screen name="Encontre Nossa Loja" component={stackLocal} />
+			<Drawer.Screen name="Vídeo da Semana" component={stackVídeos} />
 		</Drawer.Navigator>
 	);
 }
@@ -1050,8 +1122,6 @@ const styles = StyleSheet.create({
 	
 	containerScrollDetalhes: {
 		justifyContent: 'center', 
-		padding: 10, 
-		marginBottom: 10
 	},
 	
 	logoMenu: {
@@ -1078,16 +1148,12 @@ const styles = StyleSheet.create({
 	txtInput: {
 		width: 200,
 		height: 40,
-		color: '#545454',
-		borderColor: '#545454',
-		borderBottomWidth: 2,
 		marginVertical: 10,
 	},
 	
 	title: {
-		textAlign: 'center', 
-		marginBottom: 50, 
-		paddingHorizontal: 10
+		textAlign: 'center',
+		color: '#d4161d'
 	},
 
 	inputBox: {
