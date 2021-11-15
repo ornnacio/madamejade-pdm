@@ -23,42 +23,68 @@ const Stack = createStackNavigator();
 var count = 0;
 
 function telaLoja({ navigation }){
-	
+
 	const [produtos, setProdutos] = React.useState([]);
+	const [plantas, setPlantas] = React.useState([]);
+	const [vasos, setVasos] = React.useState([]);
 	const [ids, setIds] = React.useState([]);
 	const [loading1, setLoading1] = React.useState(true);
 	const [visible, setVisible] = React.useState(false);
 	const [visibleDialog, setVisibleDialog] = useState(false);
+	const [visibleMenu, setVisibleMenu] = React.useState(false);
+	const [filtroPlantas, setFiltroPlantas] = React.useState(false);
+	const [filtroVasos, setFiltroVasos] = React.useState(false);
+
 	const onDismissSnackBar = () => setVisible(false);
-	
+	const openMenu = () => setVisibleMenu(true);
+	const closeMenu = () => setVisibleMenu(false);
+
+	function checkPlanta(item){
+		return item.data.categoria === 'Planta';
+	}
+
+	function checkVaso(item){
+		return item.data.categoria === 'Vaso';
+	}
+
 	useEffect(() => {
-		
+
 		async function getProdutos(){
-			
+
 			let doc = await firebase
 			.firestore()
 			.collection('produtos')
 			.onSnapshot((query) => {
-				
-				const list = [], ids = [];
-				
+
+				const list = [];
+
 				query.forEach((doc) => {
-					list.push(doc.data());
-					ids.push(doc.id);
+					let obj = {
+						data: doc.data(),
+						id: doc.id
+					}
+					list.push(obj);
 				})
-				
+
 				setProdutos(list);
 				setIds(ids);
+
+				let apenasPlantas = list.filter(checkPlanta);
+				setPlantas(apenasPlantas);
+
+				let apenasVasos = list.filter(checkVaso);
+				setVasos(apenasVasos);
+
 				setLoading1(false);
 			})
 		}
-		
+
 		getProdutos();
-		
+
 	}, []);
-	
+
 	function deleteProduto(id, path){
-	
+
 		setVisibleDialog(true);
 
 		firebase.storage().ref()
@@ -82,31 +108,117 @@ function telaLoja({ navigation }){
 					<ActivityIndicator size='large' color="#545454"/>
 					<Text>Carregando...</Text>
 				</>}
-				{!loading1 && produtos.map((p, index) => {
+				{!loading1 && produtos.length == 0 &&
+					<View style={{
+						height: 0.4 * Dimensions.get('window').height,
+						width: 0.8 * Dimensions.get('window').width,
+						borderWidth: 1,
+						borderRadius: 5,
+						borderColor: '#d4161d',
+						justifyContent: 'center',
+						alignItems: 'center',
+						alignSelf: 'center'
+					}}>
+						<Paragraph style={{textAlign: 'center'}}>Nenhum produto encontrado.</Paragraph>
+					</View>
+				}
+				{!loading1 && produtos.length > 0 && <>
+					<Menu
+						visible={visibleMenu}
+						onDismiss={() => setVisibleMenu(false)}
+						anchor={<Button mode='contained' icon='chevron-down' color='#d4161d' style={{marginBottom: 20}} onPress={() => setVisibleMenu(true)}>Filtrar</Button>}
+					>
+					<Menu.Item onPress={() => {
+						setFiltroPlantas(false);
+						setFiltroVasos(false);
+						closeMenu();
+					}} title="Todos os Itens" />
+					<Menu.Item onPress={() => {
+						setFiltroPlantas(true);
+						setFiltroVasos(false);
+						closeMenu();
+					}} title="Plantas" />
+					<Menu.Item onPress={() => {
+						setFiltroPlantas(false);
+						setFiltroVasos(true);
+						closeMenu();
+					}} title="Vasos" />
+					</Menu>
+				</>}
+				{!loading1 && !filtroPlantas && !filtroVasos && produtos.map((p, index) => {
 
-					var preçoDouble = parseFloat(p.preço)
-					
+					var preçoDouble = parseFloat(p.data.preço)
+
 					return(
 						<Card style={styles.cardProduto} key={index}>
 							<Card.Content>
-								<Title>{p.nome}</Title>
+								<Title>{p.data.nome}</Title>
 								<Paragraph>{'R$' + preçoDouble.toFixed(2)}</Paragraph>
+								<Paragraph><Paragraph style={{fontWeight: 'bold'}}>Categoria:</Paragraph> {p.data.categoria}</Paragraph>
 							</Card.Content>
-							<Card.Cover source={{ uri: p.urlImg }} style={{width: 0.9 * Dimensions.get('window').width}}/>
+							<Card.Cover source={{ uri: p.data.urlImg }} style={{width: 0.9 * Dimensions.get('window').width}}/>
 							<Card.Actions>
 								<View style={{ flex: 0.7, alignItems: 'flex-start' }}>
-									<Button color='#d4161d' onPress={() => navigation.navigate('Detalhes', {id: ids[index], urlImg: p.urlImg})}>Detalhes</Button>
+									<Button color='#d4161d' onPress={() => navigation.navigate('Detalhes', {id: p.id, urlImg: p.data.urlImg})}>Detalhes</Button>
 								</View>
 								<View style={{ flex: 0.3, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center' }}>
-									<IconButton icon="pencil" color="#4592a0" size={25} onPress={() => navigation.navigate("AtualizarProduto", { update: true, id: ids[index], obj: p })}></IconButton>
-									<IconButton icon="delete" color="#d4161d" size={25} onPress={() => deleteProduto(ids[index], p.path)}></IconButton>
+									<IconButton icon="pencil" color="#4592a0" size={25} onPress={() => navigation.navigate("AtualizarProduto", { update: true, id: p.id, obj: p.data })}></IconButton>
+									<IconButton icon="delete" color="#d4161d" size={25} onPress={() => deleteProduto(p.id, p.data.path)}></IconButton>
+								</View>
+							</Card.Actions>
+						</Card>
+					);
+				})}
+				{!loading1 && !filtroPlantas && filtroVasos && vasos.map((p, index) => {
+
+					var preçoDouble = parseFloat(p.data.preço)
+
+					return(
+						<Card style={styles.cardProduto} key={index}>
+							<Card.Content>
+								<Title>{p.data.nome}</Title>
+								<Paragraph>{'R$' + preçoDouble.toFixed(2)}</Paragraph>
+								<Paragraph><Paragraph style={{fontWeight: 'bold'}}>Categoria:</Paragraph> {p.data.categoria}</Paragraph>
+							</Card.Content>
+							<Card.Cover source={{ uri: p.data.urlImg }} style={{width: 0.9 * Dimensions.get('window').width}}/>
+							<Card.Actions>
+								<View style={{ flex: 0.7, alignItems: 'flex-start' }}>
+									<Button color='#d4161d' onPress={() => navigation.navigate('Detalhes', {id: p.id, urlImg: p.data.urlImg})}>Detalhes</Button>
+								</View>
+								<View style={{ flex: 0.3, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center' }}>
+									<IconButton icon="pencil" color="#4592a0" size={25} onPress={() => navigation.navigate("AtualizarProduto", { update: true, id: p.id, obj: p.data })}></IconButton>
+									<IconButton icon="delete" color="#d4161d" size={25} onPress={() => deleteProduto(p.id, p.data.path)}></IconButton>
+								</View>
+							</Card.Actions>
+						</Card>
+					);
+				})}
+				{!loading1 && filtroPlantas && !filtroVasos && plantas.map((p, index) => {
+
+					var preçoDouble = parseFloat(p.data.preço)
+
+					return(
+						<Card style={styles.cardProduto} key={index}>
+							<Card.Content>
+								<Title>{p.data.nome}</Title>
+								<Paragraph>{'R$' + preçoDouble.toFixed(2)}</Paragraph>
+								<Paragraph><Paragraph style={{fontWeight: 'bold'}}>Categoria:</Paragraph> {p.data.categoria}</Paragraph>
+							</Card.Content>
+							<Card.Cover source={{ uri: p.data.urlImg }} style={{width: 0.9 * Dimensions.get('window').width}}/>
+							<Card.Actions>
+								<View style={{ flex: 0.7, alignItems: 'flex-start' }}>
+									<Button color='#d4161d' onPress={() => navigation.navigate('Detalhes', {id: p.id, urlImg: p.data.urlImg})}>Detalhes</Button>
+								</View>
+								<View style={{ flex: 0.3, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center' }}>
+									<IconButton icon="pencil" color="#4592a0" size={25} onPress={() => navigation.navigate("AtualizarProduto", { update: true, id: p.id, obj: p.data })}></IconButton>
+									<IconButton icon="delete" color="#d4161d" size={25} onPress={() => deleteProduto(p.id, p.data.path)}></IconButton>
 								</View>
 							</Card.Actions>
 						</Card>
 					);
 				})}
 			</ScrollView>
-			<FAB 
+			<FAB
 				style={styles.fab}
 				onPress={() => navigation.navigate("AddProduto")}
 				icon="plus"
@@ -129,32 +241,32 @@ function telaLoja({ navigation }){
 }
 
 function telaDetalhes({ route, navigation }){
-	
+
 	let id = route.params.id, url = route.params.urlImg;
-	
+
 	const [loading, setLoading] = React.useState(true);
 	const [info, setInfo] = React.useState([]);
-	
+
 	useEffect(() => {
-		
+
 		async function getInfo(){
-			
+
 			let doc = await firebase
 			.firestore()
 			.collection('produtos')
 			.doc(id)
 			.get();
-			
+
 			if(doc.exists){
 				setLoading(false);
 				setInfo(doc.data());
 			}
 		}
-		
+
 		getInfo();
-		
+
 	}, []);
-	
+
 	return(
 		<View style={styles.containerDetalhes}>
 			{loading && <>
@@ -163,7 +275,7 @@ function telaDetalhes({ route, navigation }){
 			</>}
 			{!loading && <>
 				<View style={{
-					flex: 0.4,
+					flex: 0.5,
 					alignItems: 'center',
 					justifyContent: 'center',
 					borderWidth: 3,
@@ -171,7 +283,6 @@ function telaDetalhes({ route, navigation }){
 					borderRadius: 5,
 					marginVertical: 15,
 					width: 0.8 * Dimensions.get('window').width,
-
 				}}>
 					<Title style={{color: '#d4161d'}}>{info.nome}</Title>
 				</View>
@@ -189,7 +300,6 @@ function telaDetalhes({ route, navigation }){
 						<Paragraph>{info.descrição}</Paragraph>
 					</ScrollView>
 				</View>
-				<Button mode='contained' onPress={() => navigation.goBack()}>Voltar</Button>
 			</>}
 		</View>
 	);
@@ -213,7 +323,7 @@ function telaAddProduto({ navigation }){
 				navigation.goBack();
 			}
 		}
-		
+
 		getPermissions();
 	});
 
@@ -223,7 +333,7 @@ function telaAddProduto({ navigation }){
 		  	mediaTypes: ImagePicker.MediaTypeOptions.All,
 		 	quality: 1,
 		});
-	
+
 		if (!result.cancelled) {
 		  	setImage(result.uri);
 		}
@@ -242,13 +352,13 @@ function telaAddProduto({ navigation }){
         let dateTime = n.getFullYear() + '_' + (n.getMonth() + 1) + '_' + n.getDate() + '_' +
             n.getHours() + '_' + n.getMinutes() + '_' + n.getSeconds();
 		let path = 'images/' + dateTime;
-		
+
 		firebase.storage().ref()
 			.child(path)
 			.put(file)
 			.then((snapshot) => {
 				snapshot.ref.getDownloadURL().then((u) => {
-					
+
 					firebase.firestore()
 						.collection('produtos')
 						.doc(dateTime)
@@ -262,7 +372,7 @@ function telaAddProduto({ navigation }){
 						})
 				})
 			})
-		
+
 		setVisibleDialog(false);
 		navigation.goBack();
 	}
@@ -272,10 +382,10 @@ function telaAddProduto({ navigation }){
 			<TouchableOpacity onPress={() => pickImage()}>
 				<Image source={image ? { uri: image } : placeholder} resizeMode="contain" style={{ width: 100, height: 100 }} />
 			</TouchableOpacity>
-			<TextInput 
-				style={styles.txtInput} 
-				placeholder='Nome do produto' 
-				onChangeText={setNome} 
+			<TextInput
+				style={styles.txtInput}
+				placeholder='Nome do produto'
+				onChangeText={setNome}
 				value={nome}
 				underlineColor='#d4161d'
 			/>
@@ -288,10 +398,10 @@ function telaAddProduto({ navigation }){
 				value={desc}
 				placeholder="Descrição do produto"
 			/>
-			<TextInput 
-				style={styles.txtInput} 
-				placeholder='Preço do produto' 
-				onChangeText={setPreço} 
+			<TextInput
+				style={styles.txtInput}
+				placeholder='Preço do produto'
+				onChangeText={setPreço}
 				value={preço}
 				underlineColor='#d4161d'
 				keyboardType={'numeric'}
@@ -299,18 +409,19 @@ function telaAddProduto({ navigation }){
 			<Menu
 				visible={visibleMenu}
 				onDismiss={() => setVisibleMenu(false)}
-				anchor={<Button mode='contained' icon='chevron-down' color='#d4161d' onPress={() => setVisibleMenu(true)}>{categoria}</Button>}
+				anchor={<Button mode='contained' icon='chevron-down' color='#d4161d' style={{width: 0.35 * Dimensions.get('window').width}} onPress={() => setVisibleMenu(true)}>{categoria}</Button>}
 			>
 				<Menu.Item onPress={() => {setCategoria('Planta'); setVisibleMenu(false)}} title="Planta" />
 				<Menu.Item onPress={() => {setCategoria('Vaso'); setVisibleMenu(false)}} title="Vaso" />
 			</Menu>
-			<Button 
-				mode='contained' 
+			<Button
+				mode='contained'
 				onPress={() => salvar()}
 				disabled={!verificarEntradas()}
 				style={{
 					backgroundColor: verificarEntradas() ? 'blue' : 'gray',
 					marginTop: 15,
+					width: 0.35 * Dimensions.get('window').width
 				}}
 			>
 				Salvar
@@ -346,7 +457,7 @@ function telaAtualizarProduto({ route, navigation }){
 				navigation.goBack();
 			}
 		}
-		
+
 		getPermissions();
 	});
 
@@ -356,7 +467,7 @@ function telaAtualizarProduto({ route, navigation }){
 		  	mediaTypes: ImagePicker.MediaTypeOptions.All,
 		 	quality: 1,
 		});
-	
+
 		if (!result.cancelled) {
 		  	setImage(result.uri);
 			setChangedImage(true);
@@ -379,13 +490,13 @@ function telaAtualizarProduto({ route, navigation }){
 			let dateTime = n.getFullYear() + '_' + (n.getMonth() + 1) + '_' + n.getDate() + '_' +
 				n.getHours() + '_' + n.getMinutes() + '_' + n.getSeconds();
 			let path = 'images/' + dateTime;
-			
+
 			firebase.storage().ref()
 				.child(path)
 				.put(file)
 				.then((snapshot) => {
 					snapshot.ref.getDownloadURL().then((u) => {
-						
+
 						firebase.firestore()
 							.collection('produtos')
 							.doc(route.params.id)
@@ -414,7 +525,7 @@ function telaAtualizarProduto({ route, navigation }){
 					categoria: categoria
 				})
 		}
-		
+
 		setVisibleDialog(false);
 		navigation.goBack();
 	}
@@ -424,10 +535,10 @@ function telaAtualizarProduto({ route, navigation }){
 			<TouchableOpacity onPress={() => pickImage()}>
 				<Image source={image ? { uri: image } : placeholder} resizeMode="contain" style={{ width: 100, height: 100 }} />
 			</TouchableOpacity>
-			<TextInput 
-				style={styles.txtInput} 
-				placeholder='Nome do produto' 
-				onChangeText={setNome} 
+			<TextInput
+				style={styles.txtInput}
+				placeholder='Nome do produto'
+				onChangeText={setNome}
 				value={nome}
 				underlineColor='#d4161d'
 			/>
@@ -440,10 +551,10 @@ function telaAtualizarProduto({ route, navigation }){
 				value={desc}
 				placeholder="Descrição do produto"
 			/>
-			<TextInput 
-				style={styles.txtInput} 
-				placeholder='Preço do produto' 
-				onChangeText={setPreço} 
+			<TextInput
+				style={styles.txtInput}
+				placeholder='Preço do produto'
+				onChangeText={setPreço}
 				value={preço}
 				underlineColor='#d4161d'
 				keyboardType={'numeric'}
@@ -451,17 +562,19 @@ function telaAtualizarProduto({ route, navigation }){
 			<Menu
 				visible={visibleMenu}
 				onDismiss={() => setVisibleMenu(false)}
-				anchor={<Button mode='contained' icon='chevron-down' color='#d4161d' onPress={() => setVisibleMenu(true)}>{categoria}</Button>}
+				anchor={<Button mode='contained' icon='chevron-down' color='#d4161d' style={{width: 0.35 * Dimensions.get('window').width}} onPress={() => setVisibleMenu(true)}>{categoria}</Button>}
 			>
 				<Menu.Item onPress={() => {setCategoria('Planta'); setVisibleMenu(false)}} title="Planta" />
 				<Menu.Item onPress={() => {setCategoria('Vaso'); setVisibleMenu(false)}} title="Vaso" />
 			</Menu>
-			<Button 
-				mode='contained' 
+			<Button
+				mode='contained'
 				onPress={() => salvar()}
 				disabled={!verificarEntradas()}
 				style={{
 					backgroundColor: verificarEntradas() ? 'blue' : 'gray',
+					marginTop: 15,
+					width: 0.35 * Dimensions.get('window').width
 				}}
 			>
 				Salvar
@@ -479,7 +592,7 @@ function telaAtualizarProduto({ route, navigation }){
 }
 
 function stackLoja({ navigation }){
-	
+
 	return(
 		<Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#577a48' }, headerTintColor: 'white' }}>
 			<Stack.Screen name="Loja" component={telaLoja} options={{title: 'Loja virtual'}}/>
@@ -491,45 +604,45 @@ function stackLoja({ navigation }){
 }
 
 function telaColeção({ navigation }){
-	
+
 	const [coleção, setColeção] = React.useState([]);
 	const [ids, setIds] = React.useState([]);
 	const [loading, setLoading] = React.useState(true);
 	const [visibleDialog, setVisibleDialog] = React.useState(false);
 	const [refreshDummy, setRefreshDummy] = React.useState(0);
 	const userId = firebase.auth().currentUser.uid;
-	
+
 	useEffect(() => {
-		
+
 		async function getColeção(){
-			
+
 			let doc = await firebase
 			.firestore()
 			.collection('users')
 			.doc(userId)
 			.collection('coleção')
 			.onSnapshot((query) => {
-				
+
 				const list = [], ids = [];
-				
+
 				query.forEach((doc) => {
 					list.push(doc.data());
 					ids.push(doc.id);
 				})
-				
+
 				setColeção(list);
 				setIds(ids);
 				setLoading(false);
 			});
-			
+
 		}
-		
+
 		getColeção();
-		
+
 	}, [refreshDummy]);
-	
+
 	function deletePlanta(id, path){
-		
+
 		setVisibleDialog(true);
 
 		firebase.storage().ref()
@@ -548,13 +661,13 @@ function telaColeção({ navigation }){
 						setRefreshDummy(refreshDummy + 1);
 					})
 		})
-		
+
 	}
-	
+
 	return(
 		<View style={styles.container}>
 			<StatusBar barStyle="light-content" hidden={false} backgroundColor="#577a48"/>
-			{!loading && coleção.length == 0 && 
+			{!loading && coleção.length == 0 &&
 				<View style={{
 					height: 0.4 * Dimensions.get('window').height,
 					width: 0.8 * Dimensions.get('window').width,
@@ -573,9 +686,9 @@ function telaColeção({ navigation }){
 				<Text>Carregando...</Text>
 			</>}
 			{!loading && coleção.length > 0 &&<ScrollView style={{width: Dimensions.get('window').width}} contentContainerStyle={styles.containerScroll}>
-				
+
 				{coleção.map((item, index) => {
-					
+
 					return(
 						<Card style={{width: 0.9 * Dimensions.get('window').width, marginBottom: 15}} key={index}>
 							<Card.Cover source={{ uri: item.urlImg }} style={{width: 0.9 * Dimensions.get('window').width}}/>
@@ -631,12 +744,12 @@ function telaAddColeção({ navigation }){
 				navigation.goBack();
 			}
 		}
-		
+
 		getPermissions();
 	});
-	
+
 	function onChange(event, selectedDate){
-		
+
 		const currentDate = selectedDate || horaRegar;
 		setVisible(false);
 		setHoraRegar(currentDate);
@@ -648,7 +761,7 @@ function telaAddColeção({ navigation }){
 		  	mediaTypes: ImagePicker.MediaTypeOptions.All,
 		 	quality: 1,
 		});
-	
+
 		if (!result.cancelled) {
 		  	setImage(result.uri);
 		}
@@ -675,7 +788,7 @@ function telaAddColeção({ navigation }){
 			.put(file)
 			.then((snapshot) => {
 				snapshot.ref.getDownloadURL().then((u) => {
-					
+
 					firebase.firestore()
 						.collection('users')
 						.doc(userId)
@@ -690,18 +803,18 @@ function telaAddColeção({ navigation }){
 						})
 				})
 			})
-		
+
 		setVisibleDialog(false);
 		navigation.goBack();
 	}
-	
+
 	return(
 		<View style={styles.container}>
 			<TouchableOpacity onPress={() => pickImage()}>
 				<Image source={image ? { uri: image } : placeholder} resizeMode="contain" style={{ width: 100, height: 100 }} />
 			</TouchableOpacity>
-			<TextInput style={styles.txtInput} placeholder='Nome da Planta' onChangeText={setNome} value={nome} />
-			<TextInput style={styles.txtInput} placeholder='Espécie' onChangeText={setEspécie} value={espécie} />
+			<TextInput style={styles.txtInput} placeholder='Nome da Planta' underlineColor='#d4161d' onChangeText={setNome} value={nome} />
+			<TextInput style={styles.txtInput} placeholder='Espécie' underlineColor='#d4161d' onChangeText={setEspécie} value={espécie} />
 			<View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 15, marginTop: 15}}>
 				<Text>Horário para regar: </Text>
 				<Button onPress={() => setVisible(true)}>Selecionar</Button>
@@ -713,19 +826,19 @@ function telaAddColeção({ navigation }){
 					onChange={onChange}
 				/>}
 			</View>
-			<Button 
-				mode='contained' 
+			<Button
+				mode='contained'
 				style={{
-					marginTop: 15, 
+					marginTop: 15,
 					marginBottom: 15,
 					backgroundColor: verificarEntradas() ? 'blue' : 'gray',
-				}} 
+					width: 0.35 * Dimensions.get('window').width
+				}}
 				onPress={() => salvar()}
 				disabled={!verificarEntradas()}
 			>
 				salvar
 			</Button>
-			<Button mode='contained' style={{marginTop: 15, marginBottom: 15}} onPress={() => navigation.goBack()}>voltar</Button>
 			<Portal>
 				<Dialog visible={visibleDialog} dismissable={true}>
 					<Dialog.Content>
@@ -757,12 +870,12 @@ function telaEditPlanta({ route, navigation }){
 				navigation.goBack();
 			}
 		}
-		
+
 		getPermissions();
 	});
-	
+
 	function onChange(event, selectedDate){
-		
+
 		const currentDate = selectedDate || horaRegar;
 		setVisible(false);
 		setHoraRegar(currentDate);
@@ -774,7 +887,7 @@ function telaEditPlanta({ route, navigation }){
 		  	mediaTypes: ImagePicker.MediaTypeOptions.All,
 		 	quality: 1,
 		});
-	
+
 		if (!result.cancelled) {
 		  	setImage(result.uri);
 			setChangedImage(true);
@@ -805,7 +918,7 @@ function telaEditPlanta({ route, navigation }){
 				.put(file)
 				.then((snapshot) => {
 					snapshot.ref.getDownloadURL().then((u) => {
-						
+
 						firebase.firestore()
 							.collection('users')
 							.doc(userId)
@@ -836,11 +949,11 @@ function telaEditPlanta({ route, navigation }){
 					horaRegar: strHora,
 				})
 		}
-		
+
 		setVisibleDialog(false);
 		navigation.goBack();
 	}
-	
+
 	return(
 		<View style={styles.container}>
 			<TouchableOpacity onPress={() => pickImage()}>
@@ -859,19 +972,19 @@ function telaEditPlanta({ route, navigation }){
 					onChange={onChange}
 				/>}
 			</View>
-			<Button 
-				mode='contained' 
+			<Button
+				mode='contained'
 				style={{
-					marginTop: 15, 
+					marginTop: 15,
 					marginBottom: 15,
 					backgroundColor: verificarEntradas() ? 'blue' : 'gray',
-				}} 
+					width: 0.35 * Dimensions.get('window').width
+				}}
 				onPress={() => salvar()}
 				disabled={!verificarEntradas()}
 			>
 				salvar
 			</Button>
-			<Button mode='contained' style={{marginTop: 15, marginBottom: 15}} onPress={() => navigation.goBack()}>voltar</Button>
 			<Portal>
 				<Dialog visible={visibleDialog} dismissable={true}>
 					<Dialog.Content>
@@ -885,7 +998,7 @@ function telaEditPlanta({ route, navigation }){
 }
 
 function stackColeção({ navigation }){
-	
+
 	return(
 		<Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#577a48' }, headerTintColor: 'white' }}>
 			<Stack.Screen name="Coleção" component={telaColeção} options={{title: 'Sua coleção'}}/>
@@ -900,7 +1013,7 @@ function telaPrevisão({ navigation }) {
 	const [dias, setDias] = useState([]);
 	const [ready, setReady] = useState(false);
 	let list = [];
-	
+
 	var options = {
 		method: 'GET',
 		url: 'https://weatherapi-com.p.rapidapi.com/forecast.json',
@@ -919,7 +1032,7 @@ function telaPrevisão({ navigation }) {
 	useEffect(() => {
 
 		axios.request(options).then((response) => {
-			
+
 			let arr = response.data.forecast.forecastday;
 
 			arr.forEach((day) => {
@@ -937,7 +1050,7 @@ function telaPrevisão({ navigation }) {
 
 			setDias(list);
 			setReady(true);
-			
+
 		}).catch(function (error) {
 			console.error(error);
 		});
@@ -951,7 +1064,7 @@ function telaPrevisão({ navigation }) {
 					<Text>Carregando...</Text>
 				</>}
 				{ready && dias.map((d, index) => {
-					
+
 					return(
 						<Card style={{width: 0.9 * Dimensions.get('window').width, marginBottom: 15}} key={index}>
 							<Card.Content>
@@ -969,7 +1082,7 @@ function telaPrevisão({ navigation }) {
 }
 
 function stackPrevisão() {
-	
+
 	return(
 		<Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#577a48' }, headerTintColor: 'white' }}>
 			<Stack.Screen name="Previsão do tempo" component={telaPrevisão} />
@@ -978,13 +1091,13 @@ function stackPrevisão() {
 }
 
 function telaLocal({ navigation }){
-	
+
 	return(
 		<View style={styles.container}>
 			<View style={{flex: 0.9}}>
 				<MapView
 					initialRegion={{
-						latitude: -26.87649265433925, 
+						latitude: -26.87649265433925,
 						longitude: -52.41826050300975,
 						latitudeDelta: 0.01,
 						longitudeDelta: 0.01,
@@ -1000,7 +1113,7 @@ function telaLocal({ navigation }){
 }
 
 function stackLocal() {
-	
+
 	return(
 		<Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#577a48' }, headerTintColor: 'white' }}>
 			<Stack.Screen name="Encontre nossa loja" component={telaLocal} />
@@ -1009,7 +1122,7 @@ function stackLocal() {
 }
 
 function telaVídeos({ navigation }){
-	
+
 	const video = React.useRef(null);
 	const [status, setStatus] = React.useState({});
 
@@ -1047,7 +1160,7 @@ function telaVídeos({ navigation }){
 }
 
 function stackVídeos() {
-	
+
 	return(
 		<Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#577a48' }, headerTintColor: 'white' }}>
 			<Stack.Screen name="Vídeo da semana" component={telaVídeos} />
@@ -1056,14 +1169,14 @@ function stackVídeos() {
 }
 
 function MenuLateral( props ) {
-	
+
 	const navigation = useNavigation();
-	
+
 	const press = () => {
 		logout();
 		navigation.replace('Loading');
 	};
-	
+
 	return (
 		<>
 			<View style={{justifyContent: 'center', alignItems: 'center'}}>
@@ -1083,7 +1196,7 @@ function MenuLateral( props ) {
 }
 
 export default function home({ navigation }){
-	
+
 	return(
 		<Drawer.Navigator drawerContentOptions={{activeTintColor: '#7aab65'}} drawerContent={(props) => <MenuLateral {...props} />}>
 			<Drawer.Screen name="Loja Digital" component={stackLoja} />
@@ -1096,7 +1209,7 @@ export default function home({ navigation }){
 }
 
 const styles = StyleSheet.create({
-	
+
 	container: {
 		flex: 1,
 		flexDirection: 'column',
@@ -1104,7 +1217,7 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'center',
 	},
-	
+
 	containerDetalhes: {
 		flex: 1,
 		flexDirection: 'column',
@@ -1113,30 +1226,30 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		paddingBottom: 10,
 	},
-	
+
 	containerScroll: {
-		paddingVertical: 25, 
-		alignItems: 'center', 
+		paddingVertical: 25,
+		alignItems: 'center',
 		justifyContent: 'center',
 	},
-	
+
 	containerScrollDetalhes: {
-		justifyContent: 'center', 
+		justifyContent: 'center',
 	},
-	
+
 	logoMenu: {
 		width: 175,
 		height: Math.floor(175 / 1.234636),
 		marginTop: 25,
 	},
-	
+
 	cardProduto: {
-		justifyContent: 'center', 
-		alignItems: 'center', 
+		justifyContent: 'center',
+		alignItems: 'center',
 		marginBottom: 20,
 		width: 0.9 * Dimensions.get('window').width,
 	},
-	
+
 	fab: {
 		position: 'absolute',
 		backgroundColor: '#d4161d',
@@ -1144,13 +1257,14 @@ const styles = StyleSheet.create({
 		right: 0,
 		bottom: 0,
 	},
-	
+
 	txtInput: {
 		width: 200,
 		height: 40,
 		marginVertical: 10,
+		width: 0.7 * Dimensions.get('window').width,
 	},
-	
+
 	title: {
 		textAlign: 'center',
 		color: '#d4161d'
