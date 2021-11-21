@@ -7,21 +7,21 @@ import { login } from "../firebase/firebaseMethods.js";
 import logo from "./assets/logo.png";
 
 export default function telaLogin({ navigation }){
-	
+
 	const [email, setEmail] = useState('');
 	const [senha, setSenha] = useState('');
 	
 	function press(){
 		if (email === '' || senha === '') {
 			Alert.alert('Email ou senha inválidos.');
+		}else{
+			login(email, senha);
+			setEmail('');
+			setSenha('');
+			navigation.navigate("Loading");
 		}
-		
-		login(email, senha);
-		setEmail('');
-		setSenha('');
-		navigation.navigate("Loading");
 	}
-	
+
 	return(
 		<View style={styles.container}>
 			<Image source={logo} style={styles.logo1}/>
@@ -30,7 +30,7 @@ export default function telaLogin({ navigation }){
 			<TouchableOpacity style={styles.butao} onPress={press}>
 				<Text style={styles.txtbotao}> Entrar </Text>
 			</TouchableOpacity>
-			
+
 			<View style={styles.rodape}>
 				<TouchableOpacity style={styles.txtclicavel} onPress={() => navigation.navigate("Cadastro")}>
 					<Text style={styles.txtbotaoTransparente}> Não tem uma conta? </Text>
@@ -41,7 +41,7 @@ export default function telaLogin({ navigation }){
 }
 
 export const styles = StyleSheet.create({
-	
+
 	container: {
 		flex: 1,
 		flexDirection: 'column',
@@ -49,7 +49,7 @@ export const styles = StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'center',
 	},
- 
+
 	rodape: {
 		flex: 0.15,
 		backgroundColor: '#aef490',
@@ -62,17 +62,17 @@ export const styles = StyleSheet.create({
 		height: 179,
 		marginBottom: 50,
 	},
-  
+
 	txtbotao: {
 		fontSize: 18,
 		color: '#aef490',
 	},
-  
+
 	txtbotaoTransparente: {
 		fontSize: 18,
 		color: '#545454',
 	},
-	
+
 	txtinput: {
 		width: 200,
 		height: 40,
@@ -80,8 +80,8 @@ export const styles = StyleSheet.create({
 		borderColor: '#545454',
 		borderBottomWidth: 2,
 		marginBottom: 20,
-	},	
-  
+	},
+
 	butao: {
 		backgroundColor: '#545454',
 		borderRadius: 5,
@@ -89,10 +89,10 @@ export const styles = StyleSheet.create({
 		marginTop: 30,
 		marginBottom: 50,
 	},
-  
+
 	txtclicavel: {
 		backgroundColor: '#aef490',
 		padding: 10,
 	},
- 
+
 });
